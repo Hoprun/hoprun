@@ -1,14 +1,18 @@
 package database
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/cr34t1ve/hoprun/pkg/models"
 	"gorm.io/gorm"
 )
 
 type Service interface {
 	ExecuteRawQuery(query string) ([]map[string]interface{}, error)
 	GetDatabaseSchema() (string, error)
+	CreateUser(ctx context.Context, email, passwordHash string) (*models.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
 }
 
 type service struct {
@@ -59,4 +63,25 @@ func (s *service) GetDatabaseSchema() (string, error) {
 	}
 
 	return schema, nil
+}
+
+func (s *service) CreateUser(ctx context.Context, email, passwordHash string) (*models.User, error) {
+	user := &models.User{
+		Email:        email,
+		PasswordHash: passwordHash,
+	}
+	result := s.db.WithContext(ctx).Create(user)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return user, nil
+}
+
+func (s *service) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+	result := s.db.WithContext(ctx).Where("email = ?", email).First(&user)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &user, nil
 }

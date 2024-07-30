@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/cr34t1ve/hoprun/internal/api"
+	"github.com/cr34t1ve/hoprun/internal/auth"
 	"github.com/cr34t1ve/hoprun/internal/database"
 	"github.com/cr34t1ve/hoprun/internal/nlp"
 	"github.com/cr34t1ve/hoprun/internal/query"
@@ -16,7 +17,8 @@ import (
 
 func main() {
 	// Initialize database
-	db, err := gorm.Open(postgres.Open("host=localhost user=postgres dbname=hoprun_dummy password=boondocks sslmode=disable"), &gorm.Config{})
+	dsn := "host=localhost user=postgres dbname=hoprun password=boondocks sslmode=disable"
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
@@ -25,12 +27,15 @@ func main() {
 	dbService := database.NewService(db)
 	nlpService := nlp.NewService("sk-proj-W1ksXGClT51j5nw5EUfYT3BlbkFJW66eo9YDwU1jfAaYY7WH")
 	queryService := query.NewService(dbService)
+	authService := auth.NewService(dbService)
 
 	// Initialize handler
-	handler := api.NewHandler(nlpService, queryService, dbService)
+	handler := api.NewHandler(nlpService, queryService, dbService, authService)
 
 	// Set up router
 	r := mux.NewRouter()
+	r.HandleFunc("/register", handler.Register).Methods("POST")
+	r.HandleFunc("/login", handler.Login).Methods("POST")
 	r.HandleFunc("/query", handler.HandleQuery).Methods("POST")
 
 	// Start server
