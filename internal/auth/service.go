@@ -17,6 +17,8 @@ type Service interface {
 	RegisterUser(ctx context.Context, email, password string) (*models.User, error)
 	LoginUser(ctx context.Context, email, password string) (string, error)
 	ValidateToken(tokenString string) (*Claims, error)
+	AddProject(ctx context.Context, userID int, name string) (*models.Project, error)
+	ListProjects(ctx context.Context, userID int) (*[]models.Project, error)
 }
 
 type service struct {
@@ -97,4 +99,20 @@ func (s *service) generateToken(userID int) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(s.jwtKey)
+}
+
+func (s *service) AddProject(ctx context.Context, userID int, name string) (*models.Project, error) {
+	project, err := s.dbService.CreateProject(ctx, userID, name)
+	if err != nil {
+		return nil, err
+	}
+	return project, err
+}
+
+func (s *service) ListProjects(ctx context.Context, userID int) (*[]models.Project, error) {
+	projects, err := s.dbService.ListProjects(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return projects, err
 }

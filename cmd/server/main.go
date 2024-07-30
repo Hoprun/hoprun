@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 	"gorm.io/driver/postgres"
@@ -25,7 +26,7 @@ func main() {
 
 	// Initialize services
 	dbService := database.NewService(db)
-	nlpService := nlp.NewService("sk-proj-W1ksXGClT51j5nw5EUfYT3BlbkFJW66eo9YDwU1jfAaYY7WH")
+	nlpService := nlp.NewService(os.Getenv("JWT_SECRET"))
 	queryService := query.NewService(dbService)
 	authService := auth.NewService(dbService)
 
@@ -36,6 +37,8 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/register", handler.Register).Methods("POST")
 	r.HandleFunc("/login", handler.Login).Methods("POST")
+	r.HandleFunc("/project", handler.CreateProject).Methods("POST")
+	r.HandleFunc("/getproject", handler.ListUserProjects).Methods("POST")
 	r.HandleFunc("/query", handler.HandleQuery).Methods("POST")
 
 	// Start server

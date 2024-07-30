@@ -13,6 +13,8 @@ type Service interface {
 	GetDatabaseSchema() (string, error)
 	CreateUser(ctx context.Context, email, passwordHash string) (*models.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+	CreateProject(ctx context.Context, userID int, name string) (*models.Project, error)
+	ListProjects(ctx context.Context, userID int) (*[]models.Project, error)
 }
 
 type service struct {
@@ -84,4 +86,25 @@ func (s *service) GetUserByEmail(ctx context.Context, email string) (*models.Use
 		return nil, result.Error
 	}
 	return &user, nil
+}
+
+func (s *service) CreateProject(ctx context.Context, userID int, name string) (*models.Project, error) {
+	project := &models.Project{
+		Name:   name,
+		UserID: userID,
+	}
+	result := s.db.WithContext(ctx).Create(project)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return project, nil
+}
+
+func (s *service) ListProjects(ctx context.Context, userID int) (*[]models.Project, error) {
+	var projects []models.Project
+	results := s.db.WithContext(ctx).Where("user_id = ?", userID).Limit(10).Find(&projects)
+	if results.Error != nil {
+		return nil, results.Error
+	}
+	return &projects, nil
 }

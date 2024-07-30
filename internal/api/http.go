@@ -73,6 +73,43 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 
+func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		UserID int    `json:"user_id"`
+		Name   string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	project, err := h.authService.AddProject(r.Context(), input.UserID, input.Name)
+	if err != nil {
+		http.Error(w, "Failed to create project: "+err.Error(), http.StatusInternalServerError)
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(project)
+}
+
+func (h *Handler) ListUserProjects(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		UserID int `json:"user_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	projects, err := h.authService.ListProjects(r.Context(), input.UserID)
+	if err != nil {
+		http.Error(w, "Failed to create project: "+err.Error(), http.StatusInternalServerError)
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(projects)
+}
+
 func (h *Handler) HandleQuery(w http.ResponseWriter, r *http.Request) {
 	var input models.QueryInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
