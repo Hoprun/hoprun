@@ -12,6 +12,7 @@ import (
 	"github.com/cr34t1ve/hoprun/internal/api"
 	"github.com/cr34t1ve/hoprun/internal/auth"
 	"github.com/cr34t1ve/hoprun/internal/database"
+	databaseconnection "github.com/cr34t1ve/hoprun/internal/database_connection"
 	"github.com/cr34t1ve/hoprun/internal/nlp"
 	"github.com/cr34t1ve/hoprun/internal/query"
 )
@@ -26,12 +27,13 @@ func main() {
 
 	// Initialize services
 	dbService := database.NewService(db)
+	dbConnService := databaseconnection.NewService(db)
 	nlpService := nlp.NewService(os.Getenv("JWT_SECRET"))
 	queryService := query.NewService(dbService)
 	authService := auth.NewService(dbService)
 
 	// Initialize handler
-	handler := api.NewHandler(nlpService, queryService, dbService, authService)
+	handler := api.NewHandler(nlpService, queryService, dbService, authService, dbConnService)
 
 	// Set up router
 	r := mux.NewRouter()
@@ -39,6 +41,8 @@ func main() {
 	r.HandleFunc("/login", handler.Login).Methods("POST")
 	r.HandleFunc("/project", handler.CreateProject).Methods("POST")
 	r.HandleFunc("/getproject", handler.ListUserProjects).Methods("POST")
+	r.HandleFunc("/addConnection", handler.AddConnection).Methods("POST")
+	r.HandleFunc("/getConnections", handler.ListDBConns).Methods("POST")
 	r.HandleFunc("/query", handler.HandleQuery).Methods("POST")
 
 	// Start server
