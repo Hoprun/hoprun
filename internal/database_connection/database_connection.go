@@ -2,7 +2,13 @@ package databaseconnection
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
+	"io"
+	"os"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -69,4 +75,56 @@ func (s *service) checkForConnectionsLength(ctx context.Context, projectID int) 
 		return -1, c.Error
 	}
 	return count, nil
+}
+
+func encryptPassword(password string) (string, error) {
+	key := []byte(os.Getenv("ENCRYPTION_KEY")) // 32 bytes for AES-256
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", err
+	}
+
+	cipherText := gcm.Seal(nonce, nonce, []byte(password), nil)
+	return base64.StdEncoding.EncodeToString(cipherText), nil
+}
+
+func decryptPassword(encryptedPassword string) (string, error) {
+	key := []byte(os.Getenv("ENCRYPTION_KEY")) // 32 bytes for AES-256
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+
+	cipherText, err := base64.RawStdEncoding.DecodeString(encryptedPassword)
+	if err != nil {
+		return "", err
+	}
+
+	nonceSize := gcm.NonceSize()
+	if len(cipherText) < nonceSize {
+		return "", err
+	}
+
+	nonce, cipherText := cipherText[:nonceSize], cipherText[nonceSize:]
+	plainText, err := gcm.Open(nil, nonce, cipherText, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return string(plainText), nil
 }
