@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -25,10 +26,12 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
+	fmt.Printf("open ai key: %s", os.Getenv("JWT_SECRET"))
+
 	// Initialize services
 	dbService := database.NewService(db)
 	dbConnService := databaseconnection.NewService(db)
-	nlpService := nlp.NewService(os.Getenv("JWT_SECRET"))
+	nlpService := nlp.NewService("sk-proj-W1ksXGClT51j5nw5EUfYT3BlbkFJW66eo9YDwU1jfAaYY7WH")
 	queryService := query.NewService(dbService)
 	authService := auth.NewService(dbService)
 

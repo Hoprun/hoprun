@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
 	"github.com/cr34t1ve/hoprun/pkg/models"
@@ -18,7 +17,8 @@ import (
 
 type Service interface {
 	AddConnection(ctx context.Context, projectID int, dbName, dbUser, dbPassword, dbHost, dbPort string) (*models.DatabaseConnection, error)
-	ListUserConnections(ctx context.Context, projectID int) (*[]models.DatabaseConnection, error)
+	ListProjectConnections(ctx context.Context, projectID int) (*[]models.DatabaseConnection, error)
+	GetProjectConnection(ctx context.Context, projectID int) (*models.DatabaseConnection, error)
 }
 
 type service struct {
@@ -35,20 +35,20 @@ func (s *service) AddConnection(ctx context.Context, projectID int, dbName, dbUs
 		return nil, err
 	}
 
-	if count > 1 {
+	if count >= 1 {
 		return nil, errors.New("connection count limit reached")
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(dbPassword), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
-	}
+	// hashedPassword, err := encryptPassword(dbPassword)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	databaseConnection := &models.DatabaseConnection{
 		ProjectID:  projectID,
 		DBName:     dbName,
 		DBUser:     dbUser,
-		DBPassword: string(hashedPassword),
+		DBPassword: dbPassword,
 		DBHost:     dbHost,
 		DBPort:     dbPort,
 	}
@@ -59,12 +59,29 @@ func (s *service) AddConnection(ctx context.Context, projectID int, dbName, dbUs
 	return databaseConnection, nil
 }
 
-func (s *service) ListUserConnections(ctx context.Context, projectID int) (*[]models.DatabaseConnection, error) {
+func (s *service) ListProjectConnections(ctx context.Context, projectID int) (*[]models.DatabaseConnection, error) {
 	var connections []models.DatabaseConnection
 	results := s.db.WithContext(ctx).Where("project_id = ?", projectID).Find(&connections)
 	if results.Error != nil {
 		return nil, results.Error
 	}
+	return &connections, nil
+}
+
+func (s *service) GetProjectConnection(ctx context.Context, projectID int) (*models.DatabaseConnection, error) {
+	var connections models.DatabaseConnection
+	results := s.db.WithContext(ctx).Where("project_id = ?", projectID).First(&connections)
+	if results.Error != nil {
+		return nil, results.Error
+	}
+
+	// decryptedPassword, err := decryptPassword(connections.DBPassword)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// connections.DBPassword = decryptedPassword
+
 	return &connections, nil
 }
 

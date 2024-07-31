@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/cr34t1ve/hoprun/internal/nlp"
 	"github.com/cr34t1ve/hoprun/internal/query"
 	"github.com/cr34t1ve/hoprun/pkg/models"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -141,7 +143,7 @@ func (h *Handler) ListDBConns(w http.ResponseWriter, r *http.Request) {
 	}
 	checkDecoding(w, r.Body, &input)
 
-	projects, err := h.databaseconnection.ListUserConnections(r.Context(), input.ProjectID)
+	projects, err := h.databaseconnection.ListProjectConnections(r.Context(), input.ProjectID)
 	if err != nil {
 		http.Error(w, "Failed to create project: "+err.Error(), http.StatusInternalServerError)
 	}
@@ -157,12 +159,47 @@ func (h *Handler) HandleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbSchema, err := h.dbService.GetDatabaseSchema()
+	// get database connection settings for project
+	dbConn, err := h.databaseconnection.GetProjectConnection(r.Context(), input.ProjectID)
 	if err != nil {
 		http.Error(w, "Failed to get database schema: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// TODO: decrpyt db connection password
+
+	// get db schema from db call
+	// NB: Ideally this would be saved in our db but here lies the case where the database structure could
+	// be changed by the user during calls. To cut out this entire process of getting the schema on each call,
+	// there would be have to be a notifier from either the backend, migration tool or database (preferably)
+	// anytime there is a change in the schema so a job is started to update the schema on our end and proceed
+	// accordingly
+
+	// start db connection
+	dsn := fmt.Sprintf("host=%s user=%s dbname=%s password=%s sslmode=disable", dbConn.DBHost, dbConn.DBUser, dbConn.DBName, dbConn.DBPassword)
+	log.Printf("db connection gotten: %s", dsn)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true})
+	if err != nil {
+		http.Error(w, "Failed to connect to user PostgreSQL connection"+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: work on this to be able to close a specific connection
+	// https://stackoverflow.com/a/74299379
+	// defer func () {
+	// 	dbInstance, _ := db.DB()
+	// 	_ = dbInstance.Close()
+	// }()
+
+	userDBService := database.NewService(db)
+	userQueryService := query.NewService(userDBService)
+	dbSchema, err := userDBService.GetDatabaseSchema()
+	if err != nil {
+		http.Error(w, "Failed to get database schema: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// pass schema to Natural language converter
 	sqlQuery, err := h.nlpService.NaturalLanguageToSQL(input.Query, dbSchema)
 	if err != nil {
 		http.Error(w, "Failed to generate SQL query"+err.Error(), http.StatusInternalServerError)
@@ -171,7 +208,7 @@ func (h *Handler) HandleQuery(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Generated SQL query: %s", sqlQuery)
 
-	results, err := h.queryService.ExecuteQuery(sqlQuery)
+	results, err := userQueryService.ExecuteQuery(sqlQuery)
 	if err != nil {
 		http.Error(w, "Failed to execute query"+err.Error(), http.StatusInternalServerError)
 		return
