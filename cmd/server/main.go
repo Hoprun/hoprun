@@ -31,7 +31,7 @@ func main() {
 	// Initialize services
 	dbService := database.NewService(db)
 	dbConnService := databaseconnection.NewService(db)
-	nlpService := nlp.NewService("sk-proj-W1ksXGClT51j5nw5EUfYT3BlbkFJW66eo9YDwU1jfAaYY7WH")
+	nlpService := nlp.NewService("<API Key>")
 	queryService := query.NewService(dbService)
 	authService := auth.NewService(dbService)
 
